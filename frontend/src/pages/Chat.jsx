@@ -21,7 +21,7 @@ function Chat() {
   useEffect(() => {
     const fetchChatHistory = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/chat/history/${sessionId}`);
+        const res = await fetch(`https://infopilot.onrender.com/api/chat/history/${sessionId}`);
         const data = await res.json();
 
         if (data.messages) {
@@ -41,7 +41,7 @@ function Chat() {
     setLoading(true); // Show loading indicator
 
     try {
-      const res = await fetch("http://localhost:5000/api/chat", {
+      const res = await fetch("https://infopilot.onrender.com/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -75,7 +75,7 @@ function Chat() {
   const newChat = async () => {
     try {
       // Clear Redis (or memory buffer) for current session
-      await fetch("http://localhost:5000/api/chat/clear", {
+      await fetch("https://infopilot.onrender.com/api/chat/clear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
