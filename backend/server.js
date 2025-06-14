@@ -3,8 +3,10 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
+import { connectDB } from "./config/db.js";
 import chatRoutes from "./routes/chat.js"; // make sure extension is .js
 
+connectDB();
 dotenv.config();
 
 const app = express();

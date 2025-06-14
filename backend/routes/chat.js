@@ -1,7 +1,7 @@
 import express from "express";
 import { runAgentWithSession } from "../agent/webSearchAgent.js";
 import { RedisChatMessageHistory } from "@langchain/redis";
-import { BufferMemory } from "langchain/memory";
+import Chat from "../models/Chat.js";
 
 const router = express.Router();
 
@@ -10,6 +10,18 @@ router.post("/", async (req, res) => {
 
   try {
     const answer = await runAgentWithSession(question, sessionId);
+
+    let chat = await Chat.findOne({ sessionId });
+
+    if (!chat) {
+      chat = new Chat({ sessionId, messages: [] });
+    }
+
+    chat.messages.push({ role: "user", text: question });
+    chat.messages.push({ role: "ai", text: answer });
+
+    await chat.save();
+
     res.json({ answer });
   } catch (error) {
     console.error("Error:", error);
@@ -38,5 +50,21 @@ router.post("/clear", async (req, res) => {
   }
 });
 
+// GET messages by sessionId
+router.get("/history/:sessionId", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const chat = await Chat.findOne({ sessionId });
+
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    res.json({ messages: chat.messages });
+  } catch (error) {
+    console.error("Error fetching chat history:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 export default router;
