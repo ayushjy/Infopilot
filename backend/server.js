@@ -22,7 +22,7 @@ app.use("/api/chat", chatRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'QueryHub backend is running!' });
+    res.json({ status: 'ok', message: 'InfoPilot backend is running!' });
 });
 
 const PORT = process.env.PORT || 5000;
