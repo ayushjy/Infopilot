@@ -1,10 +1,15 @@
 import express from "express";
 import { runAgentWithSession } from "../agent/webSearchAgent.js";
-import { RedisChatMessageHistory } from "@langchain/redis";
+import Redis from "ioredis";
+import { RedisChatMessageHistory } from "@langchain/community/stores/message/ioredis";
 import Chat from "../models/Chat.js";
 
 const router = express.Router();
+const redisClient = new Redis(process.env.REDIS_URL, {
+  tls: {}, // Required for rediss://
+});
 
+// POST: Ask question
 router.post("/", async (req, res) => {
   const { question, sessionId } = req.body;
 
@@ -29,19 +34,19 @@ router.post("/", async (req, res) => {
   }
 });
 
+// POST: Clear memory
 router.post("/clear", async (req, res) => {
   const { sessionId } = req.body;
   if (!sessionId) return res.status(400).json({ error: "SessionId required" });
 
   try {
     // Initialize RedisChatMessageHistory with sessionId and redis URL
-    const chatHistory = new RedisChatMessageHistory({
+    const messageHistory = new RedisChatMessageHistory({
       sessionId,
-      url: process.env.REDIS_URL,
+      client: redisClient,
     });
 
-    // Clear the Redis messages for this session
-    await chatHistory.clear();
+    await messageHistory.clear();
 
     res.status(200).json({ message: "Chat history cleared" });
   } catch (error) {
@@ -50,7 +55,7 @@ router.post("/clear", async (req, res) => {
   }
 });
 
-// GET messages by sessionId
+// GET: Fetch chat history
 router.get("/history/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;

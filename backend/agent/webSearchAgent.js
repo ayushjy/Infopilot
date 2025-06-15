@@ -1,23 +1,36 @@
-// Use ESM imports instead of require
 import dotenv from "dotenv";
+dotenv.config();
+
 import { ChatOpenAI } from "@langchain/openai";
 import { initializeAgentExecutorWithOptions } from "langchain/agents";
 import { SerpAPI } from "@langchain/community/tools/serpapi";
 import { BufferMemory } from "langchain/memory";
-import { RedisChatMessageHistory } from "@langchain/redis";
+import Redis from "ioredis";
+import { RedisChatMessageHistory } from "@langchain/community/stores/message/ioredis";
 
-dotenv.config();
+// 1. Initialize Redis client with TLS (for Upstash)
+const redisClient = new Redis(process.env.REDIS_URL, {
+  tls: {}, // Required for rediss://
+});
 
+// 2. Main Agent Function
 export const runAgentWithSession = async (question, sessionId) => {
   const model = new ChatOpenAI({ temperature: 0, modelName: "gpt-4" });
 
+  // Redis-based message history
+  const messageHistory = new RedisChatMessageHistory({
+    sessionId,
+    client: redisClient,
+    sessionTTL: 60 * 60 * 24, // 1 day expiry
+  });
+
+  // Attach to memory
   const memory = new BufferMemory({
     memoryKey: "chat_history",
     returnMessages: true,
-    chatHistory: new RedisChatMessageHistory({
-      sessionId,
-      url: process.env.REDIS_URL,
-    }),
+    inputKey: "input",
+    outputKey: "output",
+    chatHistory: messageHistory,
   });
 
   const tools = [
@@ -34,5 +47,6 @@ export const runAgentWithSession = async (question, sessionId) => {
     verbose: true,
   });
 
-  return await executor.run(question);
+  const response = await executor.run(question);
+  return response;
 };
