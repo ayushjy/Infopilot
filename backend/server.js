@@ -11,7 +11,7 @@ const app = express();
 
 // Handle CORS
 app.use(cors({
-    origin: 'https://infopilot-lilac.vercel.app',
+    origin: 'https://infopilot-ayushjy.vercel.app',
     methods: ['GET', 'POST', 'OPTIONS'],
     credentials: true,
 }));
