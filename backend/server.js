@@ -24,6 +24,7 @@ app.use("/api/chat", chatRoutes);
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'InfoPilot backend is running!' });
 });
+console.log("🔗 Redis URL:", process.env.REDIS_URL);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
