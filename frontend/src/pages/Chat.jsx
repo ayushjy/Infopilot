@@ -1,31 +1,35 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 function Chat() {
-  // Extract sessionId from URL (e.g., /chat/:sessionId)
+  // Extract the `sessionId` from the URL using React Router
   const { sessionId } = useParams();
 
-  // Navigation hook to redirect to a new chat session
+  // Used to programmatically navigate to a new route (for new chat session)
   const navigate = useNavigate();
 
-  // State to hold the current question input
+  // Local state to store the user's question (input field)
   const [question, setQuestion] = useState("");
 
-  // State to hold the list of all chat messages in the session
+  // All messages in the current session (both user and AI)
   const [messages, setMessages] = useState([]);
 
-  // State to handle loading while waiting for the AI response
+  // Flag to indicate if response is being fetched from backend
   const [loading, setLoading] = useState(false);
 
-  // 🔄 Fetch chat history from backend (MongoDB) when component mounts
+  // Ref to scroll to bottom when a new message is added
+  const bottomRef = useRef(null);
+
+  // On component mount or session change, fetch chat history
   useEffect(() => {
     const fetchChatHistory = async () => {
       try {
         const res = await fetch(`https://infopilot.onrender.com/api/chat/history/${sessionId}`);
         const data = await res.json();
 
+        // If previous messages exist, load them
         if (data.messages) {
-          setMessages(data.messages); // Load existing messages into UI
+          setMessages(data.messages);
         }
       } catch (error) {
         console.error("Error loading chat history:", error);
@@ -33,25 +37,29 @@ function Chat() {
     };
 
     fetchChatHistory();
-  }, [sessionId]); // Re-run if sessionId changes (i.e., new chat)
+  }, [sessionId]); // Dependency: re-run when sessionId changes
 
-  // 📤 Send a question to the backend and update the chat window
+  // Scroll to the bottom every time messages are updated
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Function to send user question to backend
   const ask = async () => {
-    if (!question.trim()) return; // Prevent sending empty messages
-    setLoading(true); // Show loading indicator
+    if (!question.trim()) return; // Ignore if empty input
+    setLoading(true); // Show loading
 
     try {
+      // POST request to backend with sessionId and question
       const res = await fetch("https://infopilot.onrender.com/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ question, sessionId }), // Send question + sessionId to backend
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, sessionId }),
       });
 
       const data = await res.json();
 
-      // Add both user and AI messages to local state
+      // Append user message and AI response to chat
       setMessages((prev) => [
         ...prev,
         { role: "user", text: question },
@@ -61,36 +69,38 @@ function Chat() {
       setQuestion(""); // Clear input field
     } catch (error) {
       console.error("Error fetching AI response:", error);
+
+      // In case of error, still show user question + error message
       setMessages((prev) => [
         ...prev,
         { role: "user", text: question },
         { role: "ai", text: "Sorry, something went wrong." },
       ]);
     } finally {
-      setLoading(false); // Hide loading indicator
+      setLoading(false); // Hide loading
     }
   };
 
-  // 🔁 Create a new chat session and clear previous one
+  // Start a completely new chat session
   const newChat = async () => {
     try {
-      // Clear Redis (or memory buffer) for current session
+      // Request backend to clear previous session data (Redis or memory)
       await fetch("https://infopilot.onrender.com/api/chat/clear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
       });
-    } catch (error) {
-      console.error("Error clearing chat history:", error);
+    } catch (err) {
+      console.error("Error clearing chat history:", err);
     }
 
-    setMessages([]); // Clear messages from UI
+    setMessages([]); // Clear UI
 
-    const newSessionId = crypto.randomUUID(); // Generate a new session ID
-    navigate(`/chat/${newSessionId}`); // Redirect to new session route
+    const newSessionId = crypto.randomUUID(); // Generate a unique session ID
+    navigate(`/chat/${newSessionId}`); // Navigate to new chat route
   };
 
-  // 🔄 Trigger "ask" function when Enter is pressed
+  // When Enter key is pressed, trigger the `ask()` function
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !loading) {
       ask();
@@ -98,48 +108,60 @@ function Chat() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      {/* Header */}
-      <div className="flex justify-between mb-4">
-        <h1 className="text-2xl font-bold">InfoPilot 🧠</h1>
+    <div className="min-h-screen flex flex-col bg-gray-900 text-white px-4 py-6">
+      {/* Header: App name and "New Chat" button */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">InfoPilot 🧠</h1>
         <button
           onClick={newChat}
-          className="bg-blue-500 px-4 py-2 rounded hover:bg-blue-600 transition"
+          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm"
           disabled={loading}
         >
           New Chat
         </button>
       </div>
 
-      {/* Chat messages */}
-      <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+      {/* Chat window - messages list */}
+      <div className="flex-1 overflow-y-auto space-y-6 pr-2">
         {messages.map((m, i) => (
           <div
             key={i}
-            className={`p-3 rounded ${m.role === "user" ? "bg-gray-800" : "bg-gray-700"}`}
+            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
           >
-            <strong>{m.role === "user" ? "You" : "InfoPilot"}:</strong> {m.text}
+            <div
+              className={`max-w-[75%] p-3 rounded-lg text-sm whitespace-pre-wrap ${m.role === "user"
+                  ? "bg-blue-600 text-white rounded-br-none"
+                  : "bg-gray-700 text-white rounded-bl-none"
+                }`}
+            >
+              {m.text}
+            </div>
           </div>
         ))}
+        {/* Empty div for scroll anchor */}
+        <div ref={bottomRef} />
       </div>
 
-      {/* Input field and Ask button */}
+      {/* Input section */}
       <div className="mt-6 flex gap-2">
+        {/* Text input field */}
         <input
           type="text"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={loading}
-          className="flex-1 p-2 rounded bg-gray-800 text-white"
           placeholder="Ask anything..."
+          className="flex-1 p-3 rounded-md bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+
+        {/* Submit button */}
         <button
           onClick={ask}
           disabled={loading || !question.trim()}
-          className="bg-green-500 px-4 py-2 rounded hover:bg-green-600 transition"
+          className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm"
         >
-          {loading ? "Finding..." : "Ask"}
+          {loading ? "Thinking..." : "Ask"}
         </button>
       </div>
     </div>
