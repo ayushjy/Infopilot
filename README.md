@@ -44,7 +44,7 @@ InfoPilot is an intelligent, multi-turn conversational web application built wit
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/infopilot.git
+git clone https://github.com/ayushjy/Infopilot.git
 cd infopilot
 ```
 
